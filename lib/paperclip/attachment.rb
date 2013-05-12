@@ -112,6 +112,8 @@ module Paperclip
       instance_write(:fingerprint, @queued_for_write[:original].fingerprint) if instance_respond_to?(:fingerprint)
       updater = :"#{name}_file_name_will_change!"
       instance.send updater if instance.respond_to? updater
+
+      @assigned_from = uploaded_file
     end
 
     # Returns the public URL of the attachment with a given style. This does
@@ -218,7 +220,9 @@ module Paperclip
     # the instance's errors and returns false, cancelling the save.
     def save
       flush_deletes unless @options[:keep_old_files]
-      flush_writes
+      @assigned_from ?
+        flush_copies :
+        flush_writes
       @dirty = false
       true
     end

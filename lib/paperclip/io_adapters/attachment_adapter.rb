@@ -22,7 +22,7 @@ module Paperclip
 
     def copy_to_tempfile(src)
       if src.respond_to? :copy_to_local_file
-        src.copy_to_local_file(@style, destination.path)
+ #       src.copy_to_local_file(@style, destination.path)
       else
         FileUtils.cp(src.path(@style), destination.path)
       end

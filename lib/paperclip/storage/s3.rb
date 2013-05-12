@@ -334,6 +334,44 @@ module Paperclip
         @queued_for_write = {}
       end
 
+      def flush_copies
+        @queued_for_write.each do |style, file|
+          begin
+            log("copying #{path(style)}")
+            acl = @s3_permissions[style] || @s3_permissions[:default]
+            acl = acl.call(self, style) if acl.respond_to?(:call)
+            write_options = {
+                :content_type => file.content_type,
+                :acl => acl
+            }
+            if @s3_server_side_encryption
+              write_options[:server_side_encryption] = @s3_server_side_encryption
+            end
+
+            style_specific_options = @options[:styles][style]
+            if style_specific_options.is_a?(Hash)
+              merge_s3_headers( style_specific_options[:s3_headers], @s3_headers, @s3_metadata) if style_specific_options.has_key?(:s3_headers)
+              @s3_metadata.merge!(style_specific_options[:s3_metadata]) if style_specific_options.has_key?(:s3_metadata)
+            end
+
+            write_options[:metadata] = @s3_metadata unless @s3_metadata.empty?
+            write_options.merge!(@s3_headers)
+
+            @assigned_from.s3_object(style).copy_to(s3_object(style), write_options)
+          rescue AWS::S3::Errors::NoSuchBucket => e
+            create_bucket
+            retry
+          ensure
+            file.rewind
+          end
+        end
+
+        after_flush_writes # allows attachment to clean up temp files
+
+        @queued_for_write = {}
+      end
+
+
       def flush_deletes #:nodoc:
         @queued_for_delete.each do |path|
           begin
